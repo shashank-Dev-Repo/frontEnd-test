@@ -1,0 +1,66 @@
+Code Review:-
+
+Its using TS where performing GET call and fetching user Data.
+
+1.) userId is used in useEffect but not mentioned in dependency array because of that it will run once on first render.
+If userId prop changes then it won't refetch.
+It should be like this.
+useEffect(() => {
+    fetch(`https://api.example.com/user/${userId}`)
+}, [userId]);
+
+2.) For user State, type is not defined. Additionally, any is being used that will cause TS type safety concern.
+It should be like this.
+interface User {
+    name: string;
+    bio: string;
+}
+
+then 
+const [user, setUser] = userState<User | null>(null);
+
+3.) Errors are only logged in console. It could be added as UI feedback.
+Like for example. 
+const [error, setError = userState<string | null>(null); 
+......
+.catch(error => {
+    console.error('Any Meaningful error message', error);
+    setError('Any Meaningful error message');
+});
+In render it can be shown. 
+{error ? <p> {error} </p> : user ? (...) : <p> Loading...</p>}
+
+4.) Code should have proper consistent formatting and indentation. 
+5.) Hardcoded API url because of that anyone inspecting JS bundle can see this endpoint. 
+it should be 
+fetch(`${ProcessingInstruction.env.REACT_APP_API_URL}/user/${userId}`)
+6.) Error handling for HTTP status codes i.e. 403, 404 or 500that needs to be parsed. 
+like this
+fetch(...)
+    .then(response => {
+        if (!response.ok) throw new Error(`Http ${response.status}`);
+        return response.json();
+    })
+
+Unit Test Review:-
+
+1.) Additional tests should also be included for:- 
+    a.) Rendered user :- Mock a successful fetch and check for user.name and user.bio
+    b.) Handling error state :- Mock a failed fetch i.e. 404 or 500 and check for error message
+    c.) Updates on userId change :- Re-render with new userId and check for new user Data
+2.) For fetch call no mocking done because of that a real network request will happen with no control over the response
+
+    It should be used like
+    beforeEach(() => {
+        jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+            json: () => Promise.resolve({ name: 'shashank', bio: 'developer'}),
+        } as Response);
+    });
+
+3.) Missing async handling because react updates state asynchronously specially after fetch, so use 
+findByText for elements that appear after delay. 
+
+like 
+
+const userName = await screen.findByText('shashank');
+expect(userName).toBeInTheDocument();
